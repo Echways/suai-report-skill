@@ -1,0 +1,85 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]   # теги проверяет release.yml, вызывая этот же workflow
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1"   # по понедельникам: не разошёлся ли скилл с новым suai-report
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Манифесты плагина, SKILL.md, evals.json и стиль скриптов; TeX не нужен
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: ruff
+        run: pipx run ruff check --output-format=github .
+
+      - name: Манифесты и скилл
+        run: python3 .github/scripts/check_repo.py
+
+  # check_report.py читает main.tex демо-отчёта на крайних версиях Python;
+  # сборки нет, поэтому лог не проверяется
+  script:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: Echways/suai-report
+          path: suai-report
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python skills/suai-report/scripts/check_report.py suai-report/demo
+
+  # Настоящий пакет из main: демо-отчёт собирается тем же suai build,
+  # что и у пользователя, и check_report.py не находит в нём ошибок
+  pdf:
+    needs: [lint, script]
+    runs-on: ubuntu-latest
+    container: texlive/texlive:latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: Echways/suai-report
+          path: suai-report
+
+      - name: Python
+        run: command -v python3 || (apt-get update && apt-get install -y --no-install-recommends python3)
+
+      - name: Сборка демо-отчёта
+        run: python3 suai-report/scripts/suai.py build suai-report/demo
+
+      - name: В собранном отчёте нет ошибок
+        run: python3 skills/suai-report/scripts/check_report.py suai-report/demo
+
+      # иначе скрипт, который всегда отвечает «замечаний нет», прошёл бы проверку
+      - name: Битая ссылка находится
+        run: |
+          sed -i 's/^\\end{document}/\\figref{ci-no-such-figure}\n&/' suai-report/demo/main.tex
+          code=0
+          python3 skills/suai-report/scripts/check_report.py suai-report/demo || code=$?
+          test "$code" -eq 1
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: demo-log
+          if-no-files-found: ignore
+          path: suai-report/demo/build/main.log

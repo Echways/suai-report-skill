@@ -1,0 +1,16 @@
+{
+  "name": "suai-report",
+  "owner": {
+    "name": "Echways"
+  },
+  "metadata": {
+    "description": "Скилл Claude Code для отчётов ГУАП на LaTeX-библиотеке suai-report."
+  },
+  "plugins": [
+    {
+      "name": "suai-report",
+      "source": "./",
+      "description": "Отчёты ГУАП по ГОСТ 7.32-2017 на LaTeX-библиотеке suai-report: от методички и скриншотов до готового PDF."
+    }
+  ]
+}

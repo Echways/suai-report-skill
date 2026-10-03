@@ -1,0 +1,57 @@
+{
+  "skill_name": "suai-report",
+  "evals": [
+    {
+      "id": 1,
+      "name": "lab-from-methodichka-and-screenshots",
+      "prompt": "сделай отчет по 14 лабе по облачным технологиям. методичка и скрины лежат в CloudTech/lab-14",
+      "expected_output": "CloudTech/lab-14/main.tex на suai-report с титулом из lab-13, задачами из методички, всеми 18 скриншотами с подписями по содержанию и ссылками на них; собранный CloudTech-lab-14.pdf",
+      "files": ["CloudTech/lab-13/main.tex", "CloudTech/lab-14/ЛР_9Организация_базы_знаний_в_менеджере_Obsidian.pdf", "CloudTech/lab-14/images/*"],
+      "assertions": [
+        "PDF CloudTech-lab-14.pdf собран рядом с main.tex",
+        "check_report.py: нет ошибок",
+        "Все рисунки и таблицы имеют ссылку в тексте",
+        "Все 18 скриншотов из images/ вставлены",
+        "Титул взят из lab-13: преподаватель Д. С. Лисюков, дисциплина «Облачные технологии и сервисы», номер 14",
+        "Нет ручных figure/tabular/itemize/lstlisting",
+        "\\suaitasks содержит не меньше 3 задач"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "lab-code-and-measurements",
+      "prompt": "напиши отчет по второй лабе по алгоритмам, все лежит в Algorithms/lab-2: задание, код и замеры. первая лаба рядом, титул бери оттуда",
+      "expected_output": "Algorithms/lab-2/main.tex: теория с оценками O(n^2)/O(n log n), листинг sort.py, таблица замеров из results.csv, анализ отношения времён при удвоении n, выводы; титул из lab-1; Algorithms-lab-2.pdf",
+      "files": ["Algorithms/lab-1/main.tex", "Algorithms/lab-2/задание.txt", "Algorithms/lab-2/sort.py", "Algorithms/lab-2/results.csv"],
+      "assertions": [
+        "PDF Algorithms-lab-2.pdf собран рядом с main.tex",
+        "check_report.py: нет ошибок",
+        "Все рисунки, таблицы и листинги имеют ссылку в тексте",
+        "Титул из lab-1: кафедра 43, А. В. Сидоров, номер 2",
+        "Нет ручных figure/tabular/itemize/lstlisting",
+        "Таблица \\suaitable содержит замеры для всех n (100…4000) с числами из results.csv",
+        "Есть формула \\suaieq",
+        "Код sort.py приведён листингом с языком Python",
+        "Есть анализ роста времени при удвоении n (отношение около 4 для O(n^2))"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "convert-markdown-report",
+      "prompt": "у меня отчет по 11 лабе написан в markdown (CloudTech/lab-11/отчет.md), картинки рядом в images. переведи его в нормальный отчет на suai-report и собери pdf",
+      "expected_output": "CloudTech/lab-11/main.tex на suai-report: всё содержание отчет.md, YAML-фрагмент листингом без языка, таблица сервисов, 4 рисунка с ссылками; титул из lab-10; CloudTech-lab-11.pdf",
+      "files": ["CloudTech/lab-10/main.tex", "CloudTech/lab-11/отчет.md", "CloudTech/lab-11/images/*"],
+      "assertions": [
+        "PDF CloudTech-lab-11.pdf собран рядом с main.tex",
+        "check_report.py: нет ошибок",
+        "Все рисунки, таблицы и листинги имеют ссылку в тексте",
+        "Титул из lab-10: Д. С. Лисюков, номер 11",
+        "Нет ручных figure/tabular/itemize/lstlisting",
+        "Все 4 картинки вставлены",
+        "Перенесённые пункты Markdown не разбиты на два пункта",
+        "Таблица сервисов из 6 строк через \\suaitable",
+        "Фрагмент docker-compose приведён листингом"
+      ]
+    }
+  ]
+}

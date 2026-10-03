@@ -1,0 +1,40 @@
+name: release
+
+# Тег vX.Y.Z (поднять version в plugin.json, git tag vX.Y.Z, git push --tags):
+#   тег совпадает с version → проверки ci.yml → GitHub Release
+#   с описанием из коммитов.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Тег совпадает с версией
+        run: python3 .github/scripts/check_repo.py --tag "$GITHUB_REF_NAME"
+
+  checks:
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes
