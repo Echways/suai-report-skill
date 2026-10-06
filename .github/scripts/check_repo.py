@@ -170,8 +170,15 @@ def check_skill(d: Path) -> str | None:
             error(path, f"links to {rel}, but the skill has no such file")
     for ref in sorted((d / "references").glob("*")):
         rel = ref.relative_to(d).as_posix()
-        if ref.is_file() and rel not in mentioned:
+        if not ref.is_file():
+            continue
+        if rel not in mentioned:
             error(path, f"{rel} is in the skill but SKILL.md never mentions it")
+        # reference files point at each other with the same skill-relative paths
+        if ref.suffix == ".md":
+            for link in sorted(set(SKILL_PATH.findall(ref.read_text(encoding="utf-8")))):
+                if not (d / link).exists():
+                    error(ref, f"links to {link}, but the skill has no such file")
     return name
 
 

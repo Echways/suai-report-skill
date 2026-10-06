@@ -121,29 +121,3 @@ Access dates and dates in the text are DD.MM.YYYY.
   other words says nothing.
 - The closing sentence about reaching the goal is optional; see how the
   user's neighbouring reports end.
-
-## Sources
-
-The handout first, then what was really used. Per GOST R 7.0.100-2018, in
-short form:
-
-```latex
-\suaisources
-Методические указания к выполнению лабораторной работы «Организация базы знаний в менеджере Obsidian» по дисциплине «Облачные технологии и сервисы». СПб.: ГУАП, 2026.
-Obsidian Help. URL: https://help.obsidian.md/ (дата обращения: 02.10.2026).
-Фаулер М. Архитектура корпоративных программных приложений. М.: Вильямс, 2015. 544 с.
-ГОСТ 7.32-2017. Отчет о научно-исследовательской работе. Структура и правила оформления. М.: Стандартинформ, 2017. 32 с.
-```
-
-The access date is today or the day the work was done. Do not pad the list
-with sources that were not used: two honest ones beat five invented ones.
-
-## Course work and large reports
-
-- A fuller introduction: relevance, goal, tasks (by chapter), object.
-- One chapter (`\section`) per part of the assignment, with subsections in
-  a steady rhythm: problem → solution → result.
-- Large sources and data dumps go to appendices (`\suaiapp`); the text
-  carries fragments and «полный текст программы приведен в приложении~А».
-- The conclusion goes chapter by chapter: what each one did, then the
-  overall inference.
