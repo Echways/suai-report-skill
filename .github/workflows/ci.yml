@@ -2,12 +2,12 @@ name: ci
 
 on:
   push:
-    branches: ["**"]   # теги проверяет release.yml, вызывая этот же workflow
+    branches: ["**"]   # tags are checked by release.yml, which calls this workflow
   pull_request:
   workflow_call:
   workflow_dispatch:
   schedule:
-    - cron: "17 5 * * 1"   # по понедельникам: не разошёлся ли скилл с новым suai-report
+    - cron: "17 5 * * 1"   # Mondays: has the skill drifted from the latest suai-report
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Манифесты плагина, SKILL.md, evals.json и стиль скриптов; TeX не нужен
+  # Plugin manifests, SKILL.md, evals.json and script style; no TeX needed
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -26,11 +26,11 @@ jobs:
       - name: ruff
         run: pipx run ruff check --output-format=github .
 
-      - name: Манифесты и скилл
+      - name: Manifests and skill
         run: python3 .github/scripts/check_repo.py
 
-  # check_report.py читает main.tex демо-отчёта на крайних версиях Python;
-  # сборки нет, поэтому лог не проверяется
+  # check_report.py reads the demo report's main.tex on the oldest and newest
+  # supported Python; there is no build, so the log is not checked
   script:
     runs-on: ubuntu-latest
     strategy:
@@ -47,8 +47,8 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: python skills/suai-report/scripts/check_report.py suai-report/demo
 
-  # Настоящий пакет из main: демо-отчёт собирается тем же suai build,
-  # что и у пользователя, и check_report.py не находит в нём ошибок
+  # The real package from main: the demo report is built with the same
+  # suai build the user runs, and check_report.py finds no errors in it
   pdf:
     needs: [lint, script]
     runs-on: ubuntu-latest
@@ -63,14 +63,14 @@ jobs:
       - name: Python
         run: command -v python3 || (apt-get update && apt-get install -y --no-install-recommends python3)
 
-      - name: Сборка демо-отчёта
+      - name: Build the demo report
         run: python3 suai-report/scripts/suai.py build suai-report/demo
 
-      - name: В собранном отчёте нет ошибок
+      - name: The built report has no errors
         run: python3 skills/suai-report/scripts/check_report.py suai-report/demo
 
-      # иначе скрипт, который всегда отвечает «замечаний нет», прошёл бы проверку
-      - name: Битая ссылка находится
+      # otherwise a script that always says "no issues" would pass
+      - name: A broken reference is caught
         run: |
           sed -i 's/^\\end{document}/\\figref{ci-no-such-figure}\n&/' suai-report/demo/main.tex
           code=0

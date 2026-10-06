@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""Проверка отчёта на suai-report v2.7.1 после сборки.
+"""Check a suai-report v2.7.1 report after a build.
 
-  python3 check_report.py [ПАПКА_ОТЧЁТА]
+  python3 check_report.py [REPORT_DIR]
 
-Читает main.tex так же, как его читает пакет (блочные команды, код под
-\\suaicode, метки и ссылки), и build/main.log последней сборки.
+Reads main.tex the way the package does (block commands, code under
+\\suaicode, labels and references) and build/main.log of the last build.
 
-  ОШИБКИ          — исправить: сборка упадёт или в PDF будет «??» / пусто;
-  ПРЕДУПРЕЖДЕНИЯ  — посмотреть глазами: чаще всего это правда недочёт;
-  TODO            — места, которые надо перечислить пользователю;
-  ИТОГ            — страницы, число объектов, имя PDF.
+  ERRORS    — fix: the build fails or the PDF shows "??" / a blank;
+  WARNINGS  — look at each one: usually a real flaw;
+  TODO      — places to list for the user;
+  SUMMARY   — page count, object counts, PDF name.
 
-Код выхода: 0 — ошибок нет, 1 — есть ошибки, 2 — проверять нечего.
+Exit code: 0 — no errors, 1 — errors, 2 — nothing to check.
 """
 
 import argparse
@@ -75,7 +75,7 @@ MANUAL_ENVS = {
     "enumerate": "\\suaienum / \\suainum",
     "lstlisting": "\\suaicode",
 }
-# языки и короткие имена из suai-report.sty — если сам файл не нашёлся
+# languages and aliases from suai-report.sty — used when the file is not found
 SUAI_LANGS = (
     "javascript",
     "typescript",
@@ -95,7 +95,7 @@ SUAI_LANGS = (
     "yml",
     "docker",
 )
-KINDS = {"fig": "рисунок", "tab": "таблица", "lst": "листинг", "eq": "формула"}
+KINDS = {"fig": "figure", "tab": "table", "lst": "listing", "eq": "equation"}
 REF_PREFIX = {"figref": "fig", "tabref": "tab", "lstref": "lst", "formref": "eq"}
 
 TOKEN = re.compile(
@@ -143,8 +143,8 @@ class Report:
 
     def show(self) -> int:
         for title, issues in (
-            ("ОШИБКИ", self.errors),
-            ("ПРЕДУПРЕЖДЕНИЯ", self.warnings),
+            ("ERRORS", self.errors),
+            ("WARNINGS", self.warnings),
             ("TODO", self.todos),
         ):
             unique = sorted(set(issues))
@@ -154,15 +154,15 @@ class Report:
                     print(issue.render())
                 print()
         if not (self.errors or self.warnings or self.todos):
-            print("Замечаний нет.\n")
+            print("No issues.\n")
         if self.summary:
-            print("ИТОГ: " + "; ".join(self.summary))
+            print("SUMMARY: " + "; ".join(self.summary))
         return 1 if self.errors else 0
 
 
 def comment_start(line: str, top_only: bool = False) -> int | None:
-    """Позиция настоящего % (не \\%; \\\\% — уже комментарий). С top_only —
-    как в строке блока: % внутри {} (\\url{a%20b}) остаётся текстом."""
+    """Position of a real % (not \\%; \\\\% does start a comment). With
+    top_only — as in a block row: % inside {} (\\url{a%20b}) stays text."""
     depth = 0
     i = 0
     while i < len(line):
@@ -186,9 +186,9 @@ def strip_comment(line: str, top_only: bool = False) -> str:
 
 
 def read_group(s: str, pos: int, open_: str) -> tuple[str | None, int]:
-    """Аргумент в {…} или […] с позиции pos, пробелы перед ним пропускаются.
-    Вложенные {} учитываются: [language={[Sharp]C}] читается целиком.
-    Возвращает (содержимое, позиция за аргументом) или (None, pos)."""
+    """Argument in {…} or […] at pos, leading spaces skipped. Nested {}
+    are honoured: [language={[Sharp]C}] is read whole. Returns
+    (content, position after the argument) or (None, pos)."""
     close = "}" if open_ == "{" else "]"
     i = pos
     while i < len(s) and s[i] in " \t":
@@ -215,8 +215,8 @@ def read_group(s: str, pos: int, open_: str) -> tuple[str | None, int]:
 
 
 def split_opts(opts: str | None) -> tuple[list[str], dict[str, str]]:
-    """Как \\clist_map_inline в пакете: пустые элементы пропускаются,
-    внешние {} снимаются. [bash, backup, firstnumber=3] ->
+    """Like \\clist_map_inline in the package: empty items are skipped,
+    outer {} are stripped. [bash, backup, firstnumber=3] ->
     (['bash', 'backup'], {'firstnumber': '3'})."""
     parts = []
     depth = 0
@@ -251,8 +251,8 @@ def unbrace(s: str) -> str:
 
 
 def top_level_bars(row: str) -> int:
-    """Число разделителей | — так режет строку пакет: вне {} и вне формулы
-    ($…$, \\(…\\)); \\| и \\$ — команды."""
+    """Number of | separators, split as the package does: outside {} and
+    outside math ($…$, \\(…\\)); \\| and \\$ are commands."""
     n = 0
     depth = 0
     math = False
@@ -277,7 +277,7 @@ def top_level_bars(row: str) -> int:
 
 
 def outside_math(text: str) -> str:
-    """Текст строки вне формул $…$ и \\(…\\) (\\$ — просто доллар)."""
+    """Row text outside math $…$ and \\(…\\) (\\$ is a plain dollar)."""
     plain = ""
     inside = False
     i = 0
@@ -300,7 +300,7 @@ def outside_math(text: str) -> str:
 
 
 def indent_width(line: str) -> int | None:
-    """Ширина отступа (табуляция — до колонки, кратной 4), None — пустая."""
+    """Indent width (a tab goes to the next multiple of 4); None if blank."""
     col = 0
     for c in line:
         if c == " ":
@@ -318,17 +318,18 @@ def leading_cs(text: str) -> str | None:
 
 
 def file_stem(name: str) -> str:
-    """Имя рисунка без расширения: images/scheme.png и scheme — это scheme."""
+    """Image name without extension: images/scheme.png and scheme → scheme."""
     p = Path(name)
     return p.stem if p.suffix.lower() in IMG_EXT else p.name
 
 
 class Languages:
-    """Какие language= знают установленный listings и сам suai-report
-    (JavaScript, YAML, …, короткие имена cpp, js, yml). Язык без диалекта
-    подходит, если он определён без диалекта или у него есть диалект по
-    умолчанию (C -> [ANSI]C). Остальное (и Lua, Assembler, Basic без
-    диалекта) пакет набирает без подсветки и пишет в лог предупреждение."""
+    """The language= values known to the installed listings and to
+    suai-report itself (JavaScript, YAML, …, aliases cpp, js, yml). A
+    language without a dialect is fine if it is defined without one or has
+    a default dialect (C -> [ANSI]C). Anything else (including Lua,
+    Assembler, Basic without a dialect) is typeset without highlighting
+    and the package logs a warning."""
 
     def __init__(self) -> None:
         self.plain: set[str] = set()
@@ -382,7 +383,7 @@ class Languages:
             self.plain.add(lang)
 
     def problem(self, value: str) -> str | None:
-        """None — язык подходит, иначе текст предупреждения."""
+        """None if the language is fine, otherwise the warning text."""
         value = unbrace(value.strip())
         if not value or not self.available or value.lower() == "c#":
             return None
@@ -392,8 +393,8 @@ class Languages:
             if (lang, dialect) in self.dialects or (not dialect and lang in self.plain):
                 return None
             return (
-                f"у языка «{m.group(2)}» в listings нет диалекта «{m.group(1)}» — "
-                "код наберётся без подсветки"
+                f"listings has no dialect '{m.group(1)}' of '{m.group(2)}' — "
+                "the code will not be highlighted"
             )
         lang = value.lower()
         if lang in self.plain or lang in self.default:
@@ -401,13 +402,13 @@ class Languages:
         known = sorted(d for name, d in self.dialects if name == lang)
         if known:
             return (
-                f"«{value}» в listings есть только с диалектом, иначе код без "
-                f"подсветки — language={{[{known[-1]}]{value}}}; "
-                f"варианты: {', '.join(known)}"
+                f"listings has '{value}' only with a dialect, otherwise no "
+                f"highlighting — language={{[{known[-1]}]{value}}}; "
+                f"dialects: {', '.join(known)}"
             )
         return (
-            f"язык листинга «{value}» неизвестен — код наберётся без подсветки; "
-            "проверь имя или убери язык: [label=lst:имя]"
+            f"unknown listing language '{value}' — the code will not be "
+            "highlighted; fix the name or drop it: [label=lst:name]"
         )
 
 
@@ -433,9 +434,10 @@ class TexChecker:
         self.code_files: list[Path] = []
         self.blocks: list[tuple[str, int, int]] = []
         self.unknown_langs: set[str] = set()
+        self.bad_refs = False
 
     def block_at(self, n: int) -> tuple[str, int] | None:
-        """Блок, в который попадает строка n: (команда, строка команды)."""
+        """Block containing line n: (command, line of the command)."""
         for cmd, first, last in self.blocks:
             if first < n <= last:
                 return cmd, first
@@ -444,12 +446,12 @@ class TexChecker:
     def define(self, label: str, n: int, kind: str | None = None) -> None:
         if label in self.labels:
             hint = (
-                "; у повторной картинки — 4-й аргумент [своя-метка]"
+                "; give a repeated image its own label in the 4th argument"
                 if label.startswith("fig:")
                 else ""
             )
             self.r.error(
-                n, f"метка {label} уже есть (строка {self.labels[label]}){hint}"
+                n, f"label {label} is already defined (line {self.labels[label]}){hint}"
             )
             return
         self.labels[label] = n
@@ -457,11 +459,11 @@ class TexChecker:
             self.objects.append(Obj(kind, label, n))
 
     def block_rows(self, start: int) -> tuple[list[tuple[int, str]], int]:
-        """Строки блока с индекса start — как их читает пакет: до пустой
-        строки или строки, начинающейся с \\suai…, \\section, \\begin, \\end
-        и т. п. Комментарий относится к своей строке, строка из одного
-        комментария пропускается. Возвращает строки — (номер строки,
-        текст) — и номер строки, на которой блок кончился."""
+        """Block rows from index start, read as the package does: up to a
+        blank line or a line starting with \\suai…, \\section, \\begin,
+        \\end and the like. A comment belongs to its own line; a
+        comment-only line is skipped. Returns the rows — (line number,
+        text) — and the line number where the block ended."""
         rows = []
         j = start
         total = len(self.lines)
@@ -482,8 +484,8 @@ class TexChecker:
         if after.strip():
             self.r.warn(
                 n,
-                f"текст после \\{cmd} на той же строке станет первой "
-                "строкой блока — перенеси его на строку ниже",
+                f"text after \\{cmd} on the same line becomes the first "
+                "row of the block — move it to the next line",
             )
         start = idx + 1
         if (
@@ -502,36 +504,40 @@ class TexChecker:
                 if top_level_bars(text) == 0:
                     self.r.warn(
                         ln,
-                        "строка под \\suaieq без «|» — забыта пустая "
-                        "строка после формулы?",
+                        "row under \\suaieq has no '|' — missing blank "
+                        "line after the equation?",
                     )
         elif not rows and cmd != "suaisources":
-            self.r.error(n, f"под \\{cmd} нет строк — блок пропадёт из PDF")
+            self.r.error(
+                n, f"no rows under \\{cmd} — the block will be missing from the PDF"
+            )
 
     def check_table(self, n: int, rows: list[tuple[int, str]]) -> None:
         if not rows:
-            self.r.error(n, "под \\suaitable нет строк — таблица пропадёт из PDF")
+            self.r.error(
+                n, "no rows under \\suaitable — the table will be missing from the PDF"
+            )
             return
         if len(rows) == 1:
-            self.r.warn(n, "в таблице только шапка")
+            self.r.warn(n, "the table has only a header row")
         head = top_level_bars(rows[0][1]) + 1
         for ln, text in rows:
             cells = top_level_bars(text) + 1
             if cells != head:
                 self.r.warn(
                     ln,
-                    f"в строке таблицы {cells} ячеек, в шапке {head} — "
-                    "перенесённая строка или лишний «|»?",
+                    f"table row has {cells} cells, the header has {head} — "
+                    "a wrapped row or a stray '|'?",
                 )
             if "\\|" in outside_math(text):
                 self.r.error(
                     ln,
-                    "\\| вне формулы — это математическая ‖, сборка "
-                    "упадёт с «Missing $»; символ | в ячейке — \\textbar{}",
+                    "\\| outside math is the math symbol ‖ and the build "
+                    "fails with 'Missing $'; a literal | in a cell is \\textbar{}",
                 )
 
     def find_image(self, name: str) -> tuple[bool, str | None]:
-        """(найден, подсказка про регистр)."""
+        """(found, filename-case hint)."""
         for base in IMG_DIRS:
             p = self.d / base / name
             cands = [p] if p.suffix.lower() in IMG_EXT else []
@@ -563,8 +569,8 @@ class TexChecker:
         if name is None or caption is None:
             self.r.error(
                 n,
-                "у \\suaiimg не прочитались аргументы: "
-                "\\suaiimg[ширина]{файл}{Подпись}[метка]",
+                "cannot parse the \\suaiimg arguments: "
+                "\\suaiimg[width]{file}{Caption}[label]",
             )
             return
         name = name.strip()
@@ -572,14 +578,16 @@ class TexChecker:
         found, case_hint = self.find_image(name)
         if not found:
             hint = (
-                f" — в папке есть «{case_hint}», проверь регистр" if case_hint else ""
+                f" — the folder has '{case_hint}', check the letter case"
+                if case_hint
+                else ""
             )
-            self.r.error(n, f"нет файла рисунка «{name}» в images/{hint}")
+            self.r.error(n, f"image file '{name}' not found in images/{hint}")
         caption = caption.strip()
         if not caption:
-            self.r.warn(n, "у рисунка пустая подпись")
+            self.r.warn(n, "figure has an empty caption")
         elif caption.endswith("."):
-            self.r.warn(n, "подпись рисунка с точкой в конце — по ГОСТу без точки")
+            self.r.warn(n, "figure caption ends with a period — GOST wants none")
         self.define(own.strip() if own else f"fig:{file_stem(name)}", n, "fig")
 
     def check_lang(self, n: int, lang: str) -> None:
@@ -589,16 +597,16 @@ class TexChecker:
             self.r.warn(n, problem)
 
     def check_code(self, n: int, idx: int, raw: str, start: int) -> int:
-        """\\suaicode на строке idx с позиции start (за именем команды).
-        Возвращает индекс строки, с которой продолжать разбор."""
+        """\\suaicode on line idx from position start (after the command
+        name). Returns the index of the line to resume parsing from."""
         line = strip_comment(raw)
         opts, pos = read_group(line, start, "[")
         first, pos = read_group(line, pos, "{")
         if first is None:
             self.r.error(
                 n,
-                "у \\suaicode не прочитались аргументы — подпись "
-                "должна быть на одной строке с командой",
+                "cannot parse the \\suaicode arguments — the caption "
+                "must be on the same line as the command",
             )
             return idx + 1
         positional, keyed = split_opts(opts)
@@ -621,7 +629,8 @@ class TexChecker:
             else:
                 self.r.error(
                     n,
-                    f"нет файла листинга «{fname}» (искал рядом с main.tex и в code/)",
+                    f"listing file '{fname}' not found (looked next to main.tex "
+                    "and in code/)",
                 )
             if own:
                 label = own.strip()
@@ -634,8 +643,8 @@ class TexChecker:
         if rest and not rest.startswith("%"):
             self.r.error(
                 n,
-                "после подписи \\suaicode на той же строке ничего не "
-                "пишется: код — со следующей строки, с отступом",
+                "nothing may follow the \\suaicode caption on the same "
+                "line: the code starts on the next line, indented",
             )
         j = idx + 1
         code = 0
@@ -651,31 +660,31 @@ class TexChecker:
         if not code:
             self.r.error(
                 n,
-                "под \\suaicode нет строк с отступом; код из файла — "
-                "\\suaicode[язык]{файл}{Подпись}",
+                "no indented lines under \\suaicode; code from a file is "
+                "\\suaicode[language]{file}{Caption}",
             )
         if label:
             self.define(label, n, "lst")
         else:
             self.r.warn(
                 n,
-                "листинг без метки — на него не сослаться: "
-                "[язык, метка] или [label=lst:имя]",
+                "listing without a label cannot be referenced: "
+                "[language, label] or [label=lst:name]",
             )
         while j > idx + 1 and indent_width(self.lines[j - 1]) is None:
             j -= 1
         return j
 
     def skip_env(self, idx: int, env: str, after: str) -> int:
-        """Окружение, внутри которого команды не ищутся."""
+        """Environment whose body is not scanned for commands."""
         n = idx + 1
         if env in ("code", "lstlisting"):
             opts, _ = read_group(after, 0, "[")
             if env == "code":
                 self.r.warn(
                     n,
-                    "окружение code — синтаксис до v2.5; теперь код "
-                    "пишется под \\suaicode[язык, метка]{Подпись} с отступом",
+                    "the code environment is pre-v2.5 syntax; code now goes "
+                    "indented under \\suaicode[language, label]{Caption}",
                 )
             positional, keyed = split_opts(opts)
             lang = keyed.get(
@@ -694,7 +703,7 @@ class TexChecker:
         while j < len(self.lines) and end not in self.lines[j]:
             j += 1
         if j >= len(self.lines):
-            self.r.error(n, f"нет \\end{{{env}}}")
+            self.r.error(n, f"missing \\end{{{env}}}")
         return j + 1
 
     def run(self) -> None:
@@ -704,9 +713,7 @@ class TexChecker:
             )
             for line in self.lines
         ):
-            self.r.error(
-                1, "нет \\usepackage{suai-report} — это не отчёт на suai-report"
-            )
+            self.r.error(1, "no \\usepackage{suai-report} — not a suai-report document")
         in_doc = False
         idx = 0
         while idx < len(self.lines):
@@ -738,12 +745,14 @@ class TexChecker:
                         elif cmd == "suaitable":
                             self.r.warn(
                                 n,
-                                "таблица без метки — на неё не сослаться: "
-                                "\\suaitable[метка]{Название}",
+                                "table without a label cannot be referenced: "
+                                "\\suaitable[label]{Title}",
                             )
                     self.check_block(cmd, n, idx, after[pos:])
                 elif cmd == "suaititlepage":
-                    self.r.error(n, "\\suaititlepage убран в v2.2 — \\maketitle")
+                    self.r.error(
+                        n, "\\suaititlepage was removed in v2.2 — use \\maketitle"
+                    )
                 elif cmd == "label":
                     lab, _ = read_group(after, 0, "{")
                     if lab:
@@ -756,8 +765,8 @@ class TexChecker:
                     if in_doc and env.rstrip("*") in MANUAL_ENVS:
                         self.r.warn(
                             n,
-                            f"\\begin{{{env}}} руками — проверь, не нужна "
-                            f"ли {MANUAL_ENVS[env.rstrip('*')]}",
+                            f"manual \\begin{{{env}}} — check whether "
+                            f"{MANUAL_ENVS[env.rstrip('*')]} would do",
                         )
                     if env in VERBATIM_ENVS:
                         next_idx = max(next_idx, self.skip_env(idx, env, after[pos:]))
@@ -776,14 +785,14 @@ class TexChecker:
                 )
             idx = next_idx
         if not in_doc:
-            self.r.error(0, "нет \\begin{document}")
+            self.r.error(0, "no \\begin{document}")
         if not self.langs.available and any(o.kind == "lst" for o in self.objects):
-            self.r.warn(0, "kpsewhich не найден — языки листингов не проверены")
+            self.r.warn(0, "kpsewhich not found — listing languages were not checked")
         self.check_refs()
         self.check_unused_images()
 
     def resolve(self, prefix: str | None, key: str) -> str:
-        """Как \\suairef: метка как есть, если такая есть, иначе с префиксом."""
+        """Like \\suairef: the label as is if it exists, else with the prefix."""
         if prefix is None or key in self.labels:
             return key
         return f"{prefix}:{key}"
@@ -802,8 +811,9 @@ class TexChecker:
                 first_ref.setdefault(label, n)
                 continue
             close = difflib.get_close_matches(label, list(self.labels), n=1, cutoff=0.8)
-            hint = f" — может, {close[0]}?" if close else ""
-            self.r.error(n, f"ссылка на несуществующую метку {label}{hint}")
+            hint = f" — did you mean {close[0]}?" if close else ""
+            self.bad_refs = True
+            self.r.error(n, f"reference to undefined label {label}{hint}")
         for a, b, n in self.ranges:
             oa, ob = self.find_object(a), self.find_object(b)
             if not (oa and ob and oa.kind == ob.kind):
@@ -819,13 +829,14 @@ class TexChecker:
             if o.label not in first_ref:
                 self.r.warn(
                     o.line,
-                    f"{what} {o.label} без ссылки в тексте (по ГОСТу ссылка нужна)",
+                    f"{what} {o.label} is never referenced in the text "
+                    "(GOST requires a reference)",
                 )
             elif first_ref[o.label] > o.line:
                 self.r.warn(
                     o.line,
-                    f"{what} {o.label} стоит раньше первой ссылки "
-                    f"(строка {first_ref[o.label]}) — по ГОСТу после",
+                    f"{what} {o.label} comes before its first reference "
+                    f"(line {first_ref[o.label]}) — GOST wants it after",
                 )
 
     def check_unused_images(self) -> None:
@@ -840,18 +851,18 @@ class TexChecker:
             and p.stem not in self.used_images
         )
         if unused:
-            self.r.warn(0, f"в images/ не вставлены: {', '.join(unused)}")
+            self.r.warn(0, f"unused files in images/: {', '.join(unused)}")
 
     def counts(self) -> str:
         c = Counter(o.kind for o in self.objects)
         return (
-            f"рисунков {c['fig']}, таблиц {c['tab']}, листингов {c['lst']}, "
-            f"формул {c['eq']}"
+            f"figures {c['fig']}, tables {c['tab']}, listings {c['lst']}, "
+            f"equations {c['eq']}"
         )
 
 
 def log_message(lines: list[str], i: int) -> str:
-    """Строка i лога вместе с продолжением, если TeX её перенёс."""
+    """Log line i with its continuation if TeX wrapped it."""
     msg = lines[i]
     while len(lines[i]) == LOG_WIDTH and i + 1 < len(lines) and lines[i + 1]:
         i += 1
@@ -860,8 +871,8 @@ def log_message(lines: list[str], i: int) -> str:
 
 
 def flat_log(text: str) -> str:
-    """Лог одной строкой на сообщение: для поиска фраз, которые TeX или
-    l3msg (префикс «(suai)») могли перенести."""
+    """The log with one line per message: for finding phrases that TeX or
+    l3msg (the "(suai)" prefix) may have wrapped."""
     out: list[str] = []
     prev = 0
     for line in text.split("\n"):
@@ -874,8 +885,8 @@ def flat_log(text: str) -> str:
 
 
 def changed_since_build(d: Path, log: Path, fallback: list[Path]) -> list[str]:
-    """Исходники отчёта, изменённые после сборки. latexmk хранит их MD5 в
-    build/main.fdb_latexmk; без него сравниваем время с логом."""
+    """Report sources changed since the build. latexmk keeps their MD5 in
+    build/main.fdb_latexmk; without it, mtimes are compared with the log."""
     fdb = d / "build" / "main.fdb_latexmk"
     if not fdb.is_file():
         built = log.stat().st_mtime
@@ -902,7 +913,7 @@ def check_build(d: Path, tex: TexChecker, r: Report) -> None:
     log = d / "build" / "main.log"
     pdf = d / f"{d.parent.name}-{d.name}.pdf"
     if not log.is_file():
-        r.warn(0, "нет build/main.log — сначала suai build")
+        r.warn(0, "no build/main.log — run suai build first")
         return
     raw = log.read_text(encoding="utf-8", errors="replace")
     lines = raw.split("\n")
@@ -912,19 +923,19 @@ def check_build(d: Path, tex: TexChecker, r: Report) -> None:
     if changed:
         r.warn(
             0,
-            f"после сборки изменились: {', '.join(changed)} — пересобери "
-            "(suai build), иначе замечания по логу устарели",
+            f"changed since the build: {', '.join(changed)} — rebuild "
+            "(suai build), the log findings are stale",
         )
 
     ver = re.search(r"^Package: suai-report \S+ v(\d+(?:\.\d+)*)", text, re.MULTILINE)
     if not ver:
-        r.warn(0, "в логе нет suai-report — собрано не тем пакетом?")
+        r.warn(0, "suai-report is not in the log — built with a different package?")
     elif tuple(map(int, ver.group(1).split("."))) < PACKAGE_VERSION:
         r.warn(
             0,
-            f"собрано на suai-report v{ver.group(1)}, проверка — для v{VERSION}; "
-            "обнови пакет (cd suai-report && git pull && make install) "
-            "и пересобери: suai build",
+            f"built with suai-report v{ver.group(1)}, this check targets "
+            f"v{VERSION}; update the package (cd suai-report && git pull && "
+            "make install) and rebuild: suai build",
         )
 
     errs = []
@@ -934,21 +945,21 @@ def check_build(d: Path, tex: TexChecker, r: Report) -> None:
             file, num = m.group(1), m.group(2)
             msg = log_message(lines, i)[m.start(3) :].strip()
             if file != "main.tex":
-                errs.append(Issue(0, f"сборка: {file}:{num}: {msg}"))
+                errs.append(Issue(0, f"build: {file}:{num}: {msg}"))
                 continue
             block = tex.block_at(int(num))
             if block:
                 msg += (
-                    f" (строка {num} — конец блока \\{block[0]} со строки "
-                    f"{block[1]}: ошибка в одной из его строк)"
+                    f" (line {num} ends the \\{block[0]} block from line "
+                    f"{block[1]}: the error is in one of its rows)"
                 )
-            errs.append(Issue(int(num), f"сборка: {msg}"))
+            errs.append(Issue(int(num), f"build: {msg}"))
     if not errs:
         for i, line in enumerate(lines):
             if line.startswith("! ") and not line.startswith(
                 ("! Emergency stop", "! ==> Fatal")
             ):
-                errs.append(Issue(0, f"сборка: {log_message(lines, i)[2:].strip()}"))
+                errs.append(Issue(0, f"build: {log_message(lines, i)[2:].strip()}"))
     r.errors.extend(errs)
     failed = bool(errs)
 
@@ -957,8 +968,8 @@ def check_build(d: Path, tex: TexChecker, r: Report) -> None:
         failed = True
         r.error(
             0,
-            "сборка не дошла до конца (в логе нет «Output written») — "
-            "смотри вывод suai build",
+            "the build did not finish (no 'Output written' in the log) — "
+            "see the suai build output",
         )
 
     for i, line in enumerate(lines):
@@ -969,12 +980,11 @@ def check_build(d: Path, tex: TexChecker, r: Report) -> None:
             r"\\[A-Z0-9]+/\S+ |\[\]|\|", " ", lines[i + 1] if i + 1 < len(lines) else ""
         )
         shown = " ".join(shown.split())
-        shown = f"«{shown[:50]}» " if shown else ""
+        shown = f"'{shown[:50]}' " if shown else ""
         r.warn(
             int(m.group(2) or m.group(3)),
-            f"текст {shown}шире места на "
-            f"{float(m.group(1)):.0f}pt — вылезает на "
-            "поле или за край ячейки",
+            f"text {shown}is {float(m.group(1)):.0f}pt too wide — it runs "
+            "into the margin or past the cell edge",
         )
 
     lost = dict.fromkeys(
@@ -984,82 +994,86 @@ def check_build(d: Path, tex: TexChecker, r: Report) -> None:
         )
     )
     if lost:
-        r.warn(0, f"в шрифте нет символов {', '.join(lost)} — в PDF их не будет")
+        r.warn(0, f"the font lacks {', '.join(lost)} — missing from the PDF")
 
+    # the package writes these two log messages in Russian
     for m in re.finditer(
         r"Шрифт\s+'([^']*)'\s+не\s+найден,\s+используется\s+'([^']*)'", text
     ):
         r.warn(
             0,
-            f"шрифт {m.group(1)} не найден, взят {m.group(2)} — титул может "
-            "отличаться от бланка; нужен ttf-mscorefonts-installer",
+            f"font {m.group(1)} not found, {m.group(2)} used instead — the "
+            "title page may differ from the official form; install "
+            "ttf-mscorefonts-installer",
         )
 
     for lang in dict.fromkeys(re.findall(r"Язык листинга '([^']*)' неизвестен", text)):
         if lang not in tex.unknown_langs:
             r.warn(
                 0,
-                f"язык листинга «{lang}» неизвестен — код набран без подсветки; "
-                "проверь имя или убери язык: [label=lst:имя]",
+                f"unknown listing language '{lang}' — the code is not "
+                "highlighted; fix the name or drop it: [label=lst:name]",
             )
 
-    has_ref_errors = any("несуществующую метку" in e.text for e in r.errors)
     if (
         not failed
-        and not has_ref_errors
+        and not tex.bad_refs
         and ("There were undefined references" in text or "Rerun to get" in text)
     ):
-        r.warn(0, "в логе неразрешённые ссылки — пересобери: suai build")
+        r.warn(0, "unresolved references in the log — rebuild: suai build")
 
     vscode = d / ".vscode" / "settings.json"
     if vscode.is_file() and "suai_copy" not in vscode.read_text(
         encoding="utf-8", errors="replace"
     ):
-        r.warn(0, ".vscode от версии до 2.6 — обнови: suai update")
+        r.warn(0, ".vscode predates v2.6 — update it: suai update")
 
     if failed:
-        pdf_state = "не обновлён — сборка упала"
+        pdf_state = "not updated — the build failed"
     elif not pdf.is_file():
-        pdf_state = "нет"
-        r.warn(
-            0, f"нет {pdf.name} — PDF не скопировался из build/, пересобери: suai build"
-        )
-    elif pdf.stat().st_mtime < log.stat().st_mtime - 60:
-        pdf_state = "старый"
+        pdf_state = "missing"
         r.warn(
             0,
-            f"{pdf.name} старше лога — PDF не скопировался из build/, "
-            "пересобери: suai build",
+            f"no {pdf.name} — the PDF was not copied from build/, rebuild: suai build",
+        )
+    elif pdf.stat().st_mtime < log.stat().st_mtime - 60:
+        pdf_state = "stale"
+        r.warn(
+            0,
+            f"{pdf.name} is older than the log — the PDF was not copied "
+            "from build/, rebuild: suai build",
         )
     else:
         pdf_state = pdf.name
 
-    parts = [f"страниц {pages.group(1)}"] if pages else []
+    parts = [f"pages {pages.group(1)}"] if pages else []
     parts += [tex.counts(), f"PDF {pdf_state}"]
     if changed:
-        parts.append("лог устарел")
+        parts.append("stale log")
     r.summary = parts
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description=f"Проверка отчёта на suai-report v{VERSION}: main.tex и build/main.log."
+        description=f"Check a suai-report v{VERSION} report: main.tex and build/main.log."
     )
-    ap.add_argument("folder", nargs="?", default=".", help="папка отчёта (с main.tex)")
+    ap.add_argument(
+        "folder", nargs="?", default=".", help="report folder (with main.tex)"
+    )
     args = ap.parse_args()
 
     d = Path(args.folder).resolve()
     if d.name == "main.tex":
         d = d.parent
     if not (d / "main.tex").is_file():
-        print(f"нет {d / 'main.tex'}", file=sys.stderr)
+        print(f"no {d / 'main.tex'}", file=sys.stderr)
         return 2
     r = Report()
     try:
         tex = TexChecker(d, r)
     except UnicodeDecodeError as e:
         print(
-            f"main.tex не в UTF-8 ({e.reason}, байт {e.start}) — пересохрани в UTF-8",
+            f"main.tex is not UTF-8 ({e.reason}, byte {e.start}) — re-save it as UTF-8",
             file=sys.stderr,
         )
         return 2

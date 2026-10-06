@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Проверка репозитория плагина: манифесты, SKILL.md, evals.json.
+"""Check the plugin repository: manifests, SKILL.md, evals.json.
 
   python3 .github/scripts/check_repo.py [--tag vX.Y.Z]
 
-Ловит то, из-за чего плагин не поставится или скилл не сработает:
-битый JSON, разные имена в plugin.json, marketplace.json и SKILL.md,
-слишком длинное описание, ссылку на файл, которого нет в скилле.
-С --tag ещё сверяет тег с version из plugin.json.
+Catches what stops the plugin from installing or the skill from firing:
+broken JSON, names that differ between plugin.json, marketplace.json and
+SKILL.md, an over-long description, a link to a file the skill lacks.
+With --tag it also compares the tag with version in plugin.json.
 
-Код выхода: 0 — всё в порядке, 1 — есть ошибки.
+Exit code: 0 — all good, 1 — errors.
 """
 
 import argparse
@@ -34,15 +34,15 @@ def error(path: Path, text: str) -> None:
 
 def load_json(path: Path) -> dict | None:
     if not path.is_file():
-        error(path, "файла нет")
+        error(path, "file is missing")
         return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except ValueError as e:
-        error(path, f"не JSON: {e}")
+        error(path, f"not JSON: {e}")
         return None
     if not isinstance(data, dict):
-        error(path, "на верхнем уровне должен быть объект")
+        error(path, "the top level must be an object")
         return None
     return data
 
@@ -50,16 +50,16 @@ def load_json(path: Path) -> dict | None:
 def text_field(path: Path, data: dict, key: str, where: str = "") -> str | None:
     value = data.get(key)
     if not isinstance(value, str) or not value.strip():
-        error(path, f"{where}нет строки «{key}»")
+        error(path, f"{where}no string '{key}'")
         return None
     return value
 
 
 def frontmatter(path: Path, text: str) -> dict[str, str] | None:
-    """Поля «ключ: значение» между двумя «---»; значение может быть в кавычках."""
+    """The "key: value" fields between two "---" lines; a value may be quoted."""
     m = re.match(r"---\n(.*?)\n---\n", text, re.DOTALL)
     if not m:
-        error(path, "нет frontmatter между строками «---»")
+        error(path, "no frontmatter between '---' lines")
         return None
     fields: dict[str, str] = {}
     key = None
@@ -80,7 +80,7 @@ def unquote(path: Path, key: str, value: str) -> str:
         try:
             return json.loads(value)
         except ValueError:
-            error(path, f"«{key}»: строка в двойных кавычках не читается")
+            error(path, f"'{key}': cannot parse the double-quoted string")
     return value
 
 
@@ -91,10 +91,10 @@ def check_plugin() -> tuple[str | None, str | None]:
         return None, None
     name = text_field(path, data, "name")
     if name and not NAME.fullmatch(name):
-        error(path, f"name «{name}»: нужны строчные латинские буквы, цифры и дефисы")
+        error(path, f"name '{name}': lowercase Latin letters, digits and hyphens only")
     version = text_field(path, data, "version")
     if version and not VERSION.fullmatch(version):
-        error(path, f"version «{version}»: нужен вид X.Y.Z")
+        error(path, f"version '{version}': must look like X.Y.Z")
     text_field(path, data, "description")
     return name, version
 
@@ -107,40 +107,40 @@ def check_marketplace(plugin: str | None, version: str | None) -> None:
     text_field(path, data, "name")
     owner = data.get("owner")
     if not isinstance(owner, dict):
-        error(path, "нет объекта «owner»")
+        error(path, "no 'owner' object")
     else:
         text_field(path, owner, "name", "owner: ")
     plugins = data.get("plugins")
     if not isinstance(plugins, list) or not plugins:
-        error(path, "«plugins» — пустой список или его нет")
+        error(path, "'plugins' is empty or missing")
         return
     for i, entry in enumerate(plugins):
         where = f"plugins[{i}]: "
         if not isinstance(entry, dict):
-            error(path, f"{where}должен быть объект")
+            error(path, f"{where}must be an object")
             continue
         name = text_field(path, entry, "name", where)
         source = entry.get("source")
         if not source:
-            error(path, f"{where}нет «source»")
+            error(path, f"{where}no 'source'")
         if source in (".", "./"):
             if name and plugin and name != plugin:
-                error(path, f"{where}name «{name}», а в plugin.json — «{plugin}»")
+                error(path, f"{where}name '{name}', but plugin.json has '{plugin}'")
             if "version" in entry and version and entry["version"] != version:
                 error(
                     path,
-                    f"{where}version «{entry['version']}», "
-                    f"а в plugin.json — «{version}»",
+                    f"{where}version '{entry['version']}', "
+                    f"but plugin.json has '{version}'",
                 )
         elif isinstance(source, str) and source.startswith("./"):
             if not (REPO / source / ".claude-plugin" / "plugin.json").is_file():
-                error(path, f"{where}в {source} нет .claude-plugin/plugin.json")
+                error(path, f"{where}{source} has no .claude-plugin/plugin.json")
 
 
 def check_skill(d: Path) -> str | None:
     path = d / "SKILL.md"
     if not path.is_file():
-        error(d, "нет SKILL.md")
+        error(d, "no SKILL.md")
         return None
     text = path.read_text(encoding="utf-8")
     fields = frontmatter(path, text)
@@ -151,26 +151,27 @@ def check_skill(d: Path) -> str | None:
         if not NAME.fullmatch(name) or len(name) > NAME_MAX:
             error(
                 path,
-                f"name «{name}»: до {NAME_MAX} строчных латинских букв, цифр и дефисов",
+                f"name '{name}': up to {NAME_MAX} lowercase Latin letters, digits "
+                "and hyphens",
             )
         if name != d.name:
-            error(path, f"name «{name}» не совпадает с папкой «{d.name}»")
+            error(path, f"name '{name}' does not match the folder '{d.name}'")
     description = text_field(path, fields, "description")
     if description and len(description) > DESCRIPTION_MAX:
         error(
             path,
-            f"description: {len(description)} знаков, "
-            f"можно не больше {DESCRIPTION_MAX}",
+            f"description: {len(description)} characters, "
+            f"the limit is {DESCRIPTION_MAX}",
         )
 
     mentioned = set(SKILL_PATH.findall(text))
     for rel in sorted(mentioned):
         if not (d / rel).exists():
-            error(path, f"ссылка на {rel}, а такого файла в скилле нет")
+            error(path, f"links to {rel}, but the skill has no such file")
     for ref in sorted((d / "references").glob("*")):
         rel = ref.relative_to(d).as_posix()
         if ref.is_file() and rel not in mentioned:
-            error(path, f"{rel} лежит в скилле, но в SKILL.md не упомянут")
+            error(path, f"{rel} is in the skill but SKILL.md never mentions it")
     return name
 
 
@@ -183,23 +184,23 @@ def check_evals(skills: set[str]) -> None:
         return
     skill = text_field(path, data, "skill_name")
     if skill and skill not in skills:
-        error(path, f"skill_name «{skill}»: такого скилла в skills/ нет")
+        error(path, f"skill_name '{skill}': no such skill in skills/")
     evals = data.get("evals")
     if not isinstance(evals, list) or not evals:
-        error(path, "«evals» — пустой список или его нет")
+        error(path, "'evals' is empty or missing")
         return
     seen: dict[str, set] = {"id": set(), "name": set()}
     for i, entry in enumerate(evals):
         where = f"evals[{i}]: "
         if not isinstance(entry, dict):
-            error(path, f"{where}должен быть объект")
+            error(path, f"{where}must be an object")
             continue
         for key in ("id", "name"):
             value = entry.get(key)
             if value is None:
-                error(path, f"{where}нет «{key}»")
+                error(path, f"{where}no '{key}'")
             elif value in seen[key]:
-                error(path, f"{where}{key} «{value}» повторяется")
+                error(path, f"{where}duplicate {key} '{value}'")
             else:
                 seen[key].add(value)
         text_field(path, entry, "prompt", where)
@@ -210,35 +211,35 @@ def check_evals(skills: set[str]) -> None:
             or not assertions
             or not all(isinstance(a, str) and a.strip() for a in assertions)
         ):
-            error(path, f"{where}«assertions» — нужен непустой список строк")
+            error(path, f"{where}'assertions' must be a non-empty list of strings")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Проверка манифестов плагина, SKILL.md и evals.json."
+        description="Check the plugin manifests, SKILL.md and evals.json."
     )
-    ap.add_argument("--tag", help="тег релиза; должен быть v + version из plugin.json")
+    ap.add_argument("--tag", help="release tag; must be v + version from plugin.json")
     args = ap.parse_args()
 
     plugin, version = check_plugin()
     check_marketplace(plugin, version)
     skill_dirs = sorted(p for p in (REPO / "skills").glob("*") if p.is_dir())
     if not skill_dirs:
-        error(REPO / "skills", "нет ни одного скилла")
+        error(REPO / "skills", "no skills")
     skills = {name for name in map(check_skill, skill_dirs) if name}
     check_evals(skills)
     if args.tag and version and args.tag != f"v{version}":
         error(
             REPO / ".claude-plugin" / "plugin.json",
-            f"version {version}, а тег — {args.tag}; нужен v{version}",
+            f"version {version}, but the tag is {args.tag}; expected v{version}",
         )
 
     if errors:
-        print(f"ОШИБКИ ({len(errors)}):")
+        print(f"ERRORS ({len(errors)}):")
         for e in errors:
             print(f"  {e}")
         return 1
-    print(f"Замечаний нет: плагин {plugin} v{version}, скиллов {len(skills)}.")
+    print(f"No issues: plugin {plugin} v{version}, skills: {len(skills)}.")
     return 0
 
 

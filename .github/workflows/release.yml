@@ -1,8 +1,8 @@
 name: release
 
-# Тег vX.Y.Z (поднять version в plugin.json, git tag vX.Y.Z, git push --tags):
-#   тег совпадает с version → проверки ci.yml → GitHub Release
-#   с описанием из коммитов.
+# Tag vX.Y.Z (bump version in plugin.json, git tag vX.Y.Z, git push --tags):
+#   the tag matches version → the ci.yml checks → a GitHub Release
+#   with notes generated from the commits.
 
 on:
   push:
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Тег совпадает с версией
+      - name: The tag matches the version
         run: python3 .github/scripts/check_repo.py --tag "$GITHUB_REF_NAME"
 
   checks:
