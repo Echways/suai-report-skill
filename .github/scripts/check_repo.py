@@ -127,8 +127,11 @@ def check_marketplace(plugin: str | None, version: str | None) -> None:
             if name and plugin and name != plugin:
                 error(path, f"{where}name «{name}», а в plugin.json — «{plugin}»")
             if "version" in entry and version and entry["version"] != version:
-                error(path, f"{where}version «{entry['version']}», "
-                            f"а в plugin.json — «{version}»")
+                error(
+                    path,
+                    f"{where}version «{entry['version']}», "
+                    f"а в plugin.json — «{version}»",
+                )
         elif isinstance(source, str) and source.startswith("./"):
             if not (REPO / source / ".claude-plugin" / "plugin.json").is_file():
                 error(path, f"{where}в {source} нет .claude-plugin/plugin.json")
@@ -146,14 +149,19 @@ def check_skill(d: Path) -> str | None:
     name = text_field(path, fields, "name")
     if name:
         if not NAME.fullmatch(name) or len(name) > NAME_MAX:
-            error(path, f"name «{name}»: до {NAME_MAX} строчных латинских букв, "
-                        "цифр и дефисов")
+            error(
+                path,
+                f"name «{name}»: до {NAME_MAX} строчных латинских букв, цифр и дефисов",
+            )
         if name != d.name:
             error(path, f"name «{name}» не совпадает с папкой «{d.name}»")
     description = text_field(path, fields, "description")
     if description and len(description) > DESCRIPTION_MAX:
-        error(path, f"description: {len(description)} знаков, "
-                    f"можно не больше {DESCRIPTION_MAX}")
+        error(
+            path,
+            f"description: {len(description)} знаков, "
+            f"можно не больше {DESCRIPTION_MAX}",
+        )
 
     mentioned = set(SKILL_PATH.findall(text))
     for rel in sorted(mentioned):
@@ -197,14 +205,18 @@ def check_evals(skills: set[str]) -> None:
         text_field(path, entry, "prompt", where)
         text_field(path, entry, "expected_output", where)
         assertions = entry.get("assertions")
-        if (not isinstance(assertions, list) or not assertions
-                or not all(isinstance(a, str) and a.strip() for a in assertions)):
+        if (
+            not isinstance(assertions, list)
+            or not assertions
+            or not all(isinstance(a, str) and a.strip() for a in assertions)
+        ):
             error(path, f"{where}«assertions» — нужен непустой список строк")
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Проверка манифестов плагина, SKILL.md и evals.json.")
+        description="Проверка манифестов плагина, SKILL.md и evals.json."
+    )
     ap.add_argument("--tag", help="тег релиза; должен быть v + version из plugin.json")
     args = ap.parse_args()
 
@@ -216,8 +228,10 @@ def main() -> int:
     skills = {name for name in map(check_skill, skill_dirs) if name}
     check_evals(skills)
     if args.tag and version and args.tag != f"v{version}":
-        error(REPO / ".claude-plugin" / "plugin.json",
-              f"version {version}, а тег — {args.tag}; нужен v{version}")
+        error(
+            REPO / ".claude-plugin" / "plugin.json",
+            f"version {version}, а тег — {args.tag}; нужен v{version}",
+        )
 
     if errors:
         print(f"ОШИБКИ ({len(errors)}):")
