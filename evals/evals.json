@@ -39,7 +39,7 @@
       "id": 3,
       "name": "convert-markdown-report",
       "prompt": "у меня отчет по 11 лабе написан в markdown (CloudTech/lab-11/отчет.md), картинки рядом в images. переведи его в нормальный отчет на suai-report и собери pdf",
-      "expected_output": "CloudTech/lab-11/main.tex на suai-report: всё содержание отчет.md, YAML-фрагмент листингом без языка, таблица сервисов, 4 рисунка с ссылками; титул из lab-10; CloudTech-lab-11.pdf",
+      "expected_output": "CloudTech/lab-11/main.tex на suai-report: всё содержание отчет.md, YAML-фрагмент листингом с языком YAML, таблица сервисов, 4 рисунка с ссылками; титул из lab-10; CloudTech-lab-11.pdf",
       "files": ["CloudTech/lab-10/main.tex", "CloudTech/lab-11/отчет.md", "CloudTech/lab-11/images/*"],
       "assertions": [
         "PDF CloudTech-lab-11.pdf собран рядом с main.tex",
@@ -50,7 +50,7 @@
         "Все 4 картинки вставлены",
         "Перенесённые пункты Markdown не разбиты на два пункта",
         "Таблица сервисов из 6 строк через \\suaitable",
-        "Фрагмент docker-compose приведён листингом"
+        "Фрагмент docker-compose приведён листингом с языком YAML"
       ]
     }
   ]

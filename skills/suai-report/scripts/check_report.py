@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Проверка отчёта на suai-report v2.6 после сборки.
+"""Проверка отчёта на suai-report v2.7.1 после сборки.
 
   python3 check_report.py [ПАПКА_ОТЧЁТА]
 
@@ -24,7 +24,8 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-PACKAGE_VERSION = (2, 6)
+PACKAGE_VERSION = (2, 7, 1)
+VERSION = ".".join(map(str, PACKAGE_VERSION))
 
 IMG_DIRS = ("images", ".")
 IMG_EXT = (".pdf", ".ai", ".png", ".jpg", ".jpeg", ".jp2", ".jpf", ".bmp",
@@ -41,6 +42,10 @@ MANUAL_ENVS = {
     "itemize": "\\suailist", "enumerate": "\\suaienum / \\suainum",
     "lstlisting": "\\suaicode",
 }
+# языки и короткие имена из suai-report.sty — если сам файл не нашёлся
+SUAI_LANGS = ("javascript", "typescript", "kotlin", "rust", "json", "yaml",
+              "dockerfile", "cpp", "cs", "csharp", "js", "ts", "py", "kt", "rs",
+              "yml", "docker")
 KINDS = {"fig": "рисунок", "tab": "таблица", "lst": "листинг", "eq": "формула"}
 REF_PREFIX = {"figref": "fig", "tabref": "tab", "lstref": "lst", "formref": "eq"}
 
@@ -99,22 +104,28 @@ class Report:
         return 1 if self.errors else 0
 
 
-def comment_start(line: str) -> int | None:
-    """Позиция настоящего % (не \\%; \\\\% — уже комментарий)."""
+def comment_start(line: str, top_only: bool = False) -> int | None:
+    """Позиция настоящего % (не \\%; \\\\% — уже комментарий). С top_only —
+    как в строке блока: % внутри {} (\\url{a%20b}) остаётся текстом."""
+    depth = 0
     i = 0
     while i < len(line):
         c = line[i]
         if c == "\\":
             i += 2
             continue
-        if c == "%":
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+        elif c == "%" and not (top_only and depth > 0):
             return i
         i += 1
     return None
 
 
-def strip_comment(line: str) -> str:
-    pos = comment_start(line)
+def strip_comment(line: str, top_only: bool = False) -> str:
+    pos = comment_start(line, top_only)
     return line if pos is None else line[:pos]
 
 
@@ -184,50 +195,52 @@ def unbrace(s: str) -> str:
 
 
 def top_level_bars(row: str) -> int:
-    """Число разделителей | вне {} и не \\| — так режет \\seq_set_split."""
+    """Число разделителей | — так режет строку пакет: вне {} и вне формулы
+    ($…$, \\(…\\)); \\| и \\$ — команды."""
     n = 0
     depth = 0
+    math = False
     i = 0
     while i < len(row):
         c = row[i]
         if c == "\\":
+            if row[i + 1:i + 2] in ("(", ")"):
+                math = row[i + 1] == "("
             i += 2
             continue
-        if c == "{":
+        if c == "$":
+            math = not math
+        elif c == "{":
             depth += 1
         elif c == "}":
             depth -= 1
-        elif c == "|" and depth == 0:
+        elif c == "|" and depth == 0 and not math:
             n += 1
         i += 1
     return n
 
 
-def split_math(text: str) -> tuple[list[str], str]:
-    """Формулы $…$ строки (\\$ — просто доллар) и текст вне них."""
-    math = []
+def outside_math(text: str) -> str:
+    """Текст строки вне формул $…$ и \\(…\\) (\\$ — просто доллар)."""
     plain = ""
-    cur = ""
     inside = False
     i = 0
     while i < len(text):
         c = text[i]
         if c == "\\":
-            cur += text[i:i + 2]
+            pair = text[i:i + 2]
+            if pair in ("\\(", "\\)"):
+                inside = pair == "\\("
+            elif not inside:
+                plain += pair
             i += 2
             continue
         if c == "$":
-            if inside:
-                math.append(f"${cur}$")
-            else:
-                plain += cur
-            cur = ""
             inside = not inside
-        else:
-            cur += c
+        elif not inside:
+            plain += c
         i += 1
-    plain += f"${cur}" if inside else cur
-    return math, plain
+    return plain
 
 
 def indent_width(line: str) -> int | None:
@@ -255,10 +268,11 @@ def file_stem(name: str) -> str:
 
 
 class Languages:
-    """Какие language= принимает установленный listings. Язык без диалекта
+    """Какие language= знают установленный listings и сам suai-report
+    (JavaScript, YAML, …, короткие имена cpp, js, yml). Язык без диалекта
     подходит, если он определён без диалекта или у него есть диалект по
-    умолчанию (C -> [ANSI]C); Lua, Assembler, Basic без диалекта роняют
-    сборку."""
+    умолчанию (C -> [ANSI]C). Остальное (и Lua, Assembler, Basic без
+    диалекта) пакет набирает без подсветки и пишет в лог предупреждение."""
 
     def __init__(self) -> None:
         self.plain: set[str] = set()
@@ -267,14 +281,17 @@ class Languages:
         self.available = self._load_installed()
 
     def _load_installed(self) -> bool:
-        names = ["listings.cfg"] + [f"lstlang{i}.sty" for i in (1, 2, 3)]
+        names = ["listings.cfg", "suai-report.sty"] + [
+            f"lstlang{i}.sty" for i in (1, 2, 3)]
         try:
             out = subprocess.run(["kpsewhich", *names], capture_output=True,
                                  text=True, timeout=10).stdout.split()
         except (OSError, subprocess.SubprocessError):
             return False
-        if len(out) < 2:
+        if not any(Path(path).name.startswith("lstlang") for path in out):
             return False
+        if not any(Path(path).name == "suai-report.sty" for path in out):
+            self.plain.update(SUAI_LANGS)
         for path in out:
             try:
                 self.add_from(Path(path).read_text(encoding="latin-1"))
@@ -300,9 +317,9 @@ class Languages:
             self.plain.add(lang)
 
     def problem(self, value: str) -> str | None:
-        """None — язык подходит, иначе текст ошибки."""
+        """None — язык подходит, иначе текст предупреждения."""
         value = unbrace(value.strip())
-        if not value or not self.available:
+        if not value or not self.available or value.lower() == "c#":
             return None
         m = re.fullmatch(r"\[([^\]]*)\]\s*(.+)", value)
         if m:
@@ -310,16 +327,17 @@ class Languages:
             if (lang, dialect) in self.dialects or (not dialect and lang in self.plain):
                 return None
             return (f"у языка «{m.group(2)}» в listings нет диалекта «{m.group(1)}» — "
-                    "сборка упадёт")
+                    "код наберётся без подсветки")
         lang = value.lower()
         if lang in self.plain or lang in self.default:
             return None
         known = sorted(d for name, d in self.dialects if name == lang)
         if known:
-            return (f"«{value}» в listings есть только с диалектом — "
-                    f"language={{[{known[-1]}]{value}}}; варианты: {', '.join(known)}")
-        return (f"язык листинга «{value}» не знаком listings — сборка упадёт; "
-                "без языка: [label=lst:имя]")
+            return (f"«{value}» в listings есть только с диалектом, иначе код без "
+                    f"подсветки — language={{[{known[-1]}]{value}}}; "
+                    f"варианты: {', '.join(known)}")
+        return (f"язык листинга «{value}» неизвестен — код наберётся без подсветки; "
+                "проверь имя или убери язык: [label=lst:имя]")
 
 
 @dataclass
@@ -343,6 +361,7 @@ class TexChecker:
         self.used_images: set[str] = set()
         self.code_files: list[Path] = []
         self.blocks: list[tuple[str, int, int]] = []
+        self.unknown_langs: set[str] = set()
 
     def block_at(self, n: int) -> tuple[str, int] | None:
         """Блок, в который попадает строка n: (команда, строка команды)."""
@@ -361,43 +380,27 @@ class TexChecker:
         if kind:
             self.objects.append(Obj(kind, label, n))
 
-    def block_rows(self, start: int) -> tuple[list[tuple[int, str, bool]], int, str | None]:
+    def block_rows(self, start: int) -> tuple[list[tuple[int, str]], int]:
         """Строки блока с индекса start — как их читает пакет: до пустой
-        строки или строки, начинающейся с \\suai…, \\section, \\begin и т. п.
-        % съедает и перевод строки: строка из одного комментария не видна,
-        а строка «текст % …» склеивается со следующей (и пустая строка
-        после неё блок уже не закрывает). Возвращает строки — (номер строки,
-        текст, был ли % после текста), — номер строки, на которой блок
-        кончился, и команду, которая его закрыла (None — не команда)."""
+        строки или строки, начинающейся с \\suai…, \\section, \\begin, \\end
+        и т. п. Комментарий относится к своей строке, строка из одного
+        комментария пропускается. Возвращает строки — (номер строки,
+        текст) — и номер строки, на которой блок кончился."""
         rows = []
-        stop = None
         j = start
         total = len(self.lines)
         while j < total:
-            first = j
-            text = ""
-            commented = False
-            while j < total:
-                raw = self.lines[j]
-                pos = comment_start(raw)
-                body = (raw if pos is None else raw[:pos]).strip()
-                if body:
-                    if not text:
-                        first = j
-                    text = f"{text} {body}" if text else body
-                    commented = commented or pos is not None
-                j += 1
-                if pos is None:
+            raw = self.lines[j]
+            if not raw.strip():
+                break
+            text = strip_comment(raw, top_only=True).strip()
+            if text:
+                cs = leading_cs(text)
+                if cs and (cs in BLOCK_STOP or cs.startswith("suai")):
                     break
-            if not text:
-                break
-            cs = leading_cs(text)
-            if cs and (cs in BLOCK_STOP or cs.startswith("suai")):
-                j = first + 1
-                stop = cs
-                break
-            rows.append((first + 1, text, commented and j < total))
-        return rows, j, stop
+                rows.append((j + 1, text))
+            j += 1
+        return rows, min(j + 1, total)
 
     def check_block(self, cmd: str, n: int, idx: int, after: str) -> None:
         if after.strip():
@@ -407,49 +410,31 @@ class TexChecker:
         if (self.blocks and self.blocks[-1][2] == n and start < len(self.lines)
                 and not self.lines[start].strip()):
             start += 1
-        rows, end, stop = self.block_rows(start)
+        rows, end = self.block_rows(start)
         self.blocks.append((cmd, n, end))
-        if stop == "end":
-            self.r.error(end, f"блок \\{cmd} со строки {n} упирается в "
-                              "\\end{…} — нужна пустая строка перед ним, "
-                              "иначе сборка падает")
-        for ln, _, commented in rows:
-            if commented:
-                self.r.error(ln, f"% в строке блока \\{cmd} съедает перевод строки: "
-                                 "следующая строка приклеится к этой, пустая строка "
-                                 "не закроет блок — убери комментарий или пиши \\%")
         if cmd == "suaitable":
             self.check_table(n, rows)
         elif cmd == "suaieq":
-            for ln, text, _ in rows:
+            for ln, text in rows:
                 if top_level_bars(text) == 0:
                     self.r.warn(ln, "строка под \\suaieq без «|» — забыта пустая "
                                     "строка после формулы?")
         elif not rows and cmd != "suaisources":
             self.r.error(n, f"под \\{cmd} нет строк — блок пропадёт из PDF")
 
-    def check_table(self, n: int, rows: list[tuple[int, str, bool]]) -> None:
+    def check_table(self, n: int, rows: list[tuple[int, str]]) -> None:
         if not rows:
             self.r.error(n, "под \\suaitable нет строк — таблица пропадёт из PDF")
             return
         if len(rows) == 1:
             self.r.warn(n, "в таблице только шапка")
         head = top_level_bars(rows[0][1]) + 1
-        for ln, text, _ in rows:
+        for ln, text in rows:
             cells = top_level_bars(text) + 1
             if cells != head:
                 self.r.warn(ln, f"в строке таблицы {cells} ячеек, в шапке {head} — "
                                 "перенесённая строка или лишний «|»?")
-            math, plain = split_math(text)
-            for f in math:
-                if "|" in f.replace("\\|", ""):
-                    self.r.warn(ln, f"«|» внутри формулы {f} делит ячейку — "
-                                    "\\lvert, \\rvert, \\mid или \\textbar{}")
-                if re.search(r"\s", f):
-                    self.r.error(ln, f"формула с пробелами в ячейке {f} роняет сборку "
-                                     "(«Missing $») — пиши без пробелов, после "
-                                     "команды {}: $a+b$, $\\lvert{}x\\rvert$")
-            if "\\|" in plain:
+            if "\\|" in outside_math(text):
                 self.r.error(ln, "\\| вне формулы — это математическая ‖, сборка "
                                  "упадёт с «Missing $»; символ | в ячейке — \\textbar{}")
 
@@ -499,6 +484,12 @@ class TexChecker:
             self.r.warn(n, "подпись рисунка с точкой в конце — по ГОСТу без точки")
         self.define(own.strip() if own else f"fig:{file_stem(name)}", n, "fig")
 
+    def check_lang(self, n: int, lang: str) -> None:
+        problem = self.langs.problem(lang)
+        if problem:
+            self.unknown_langs.add(unbrace(lang.strip()))
+            self.r.warn(n, problem)
+
     def check_code(self, n: int, idx: int, raw: str, start: int) -> int:
         """\\suaicode на строке idx с позиции start (за именем команды).
         Возвращает индекс строки, с которой продолжать разбор."""
@@ -511,9 +502,7 @@ class TexChecker:
             return idx + 1
         positional, keyed = split_opts(opts)
         lang = keyed.get("language", positional[0] if positional else "")
-        problem = self.langs.problem(lang)
-        if problem:
-            self.r.error(n, problem)
+        self.check_lang(n, lang)
         label = keyed.get("label") or (f"lst:{positional[1]}" if len(positional) > 1 else None)
 
         second, pos2 = read_group(line, pos, "{")
@@ -567,13 +556,11 @@ class TexChecker:
         if env in ("code", "lstlisting"):
             opts, pos = read_group(after, 0, "[")
             if env == "code":
-                self.r.warn(n, "окружение code — синтаксис до v2.5; в 2.6 код "
+                self.r.warn(n, "окружение code — синтаксис до v2.5; теперь код "
                                "пишется под \\suaicode[язык, метка]{Подпись} с отступом")
             positional, keyed = split_opts(opts)
             lang = keyed.get("language", positional[0] if env == "code" and positional else "")
-            problem = self.langs.problem(lang)
-            if problem:
-                self.r.error(n, problem)
+            self.check_lang(n, lang)
             label = keyed.get("label") or (
                 f"lst:{positional[1]}" if env == "code" and len(positional) > 1 else None)
             if label:
@@ -769,12 +756,13 @@ def check_build(d: Path, tex: TexChecker, r: Report) -> None:
         r.warn(0, f"после сборки изменились: {', '.join(changed)} — пересобери "
                   "(suai build), иначе замечания по логу устарели")
 
-    ver = re.search(r"^Package: suai-report \S+ v(\d+)\.(\d+)", text, re.M)
+    ver = re.search(r"^Package: suai-report \S+ v(\d+(?:\.\d+)*)", text, re.M)
     if not ver:
         r.warn(0, "в логе нет suai-report — собрано не тем пакетом?")
-    elif (int(ver.group(1)), int(ver.group(2))) < PACKAGE_VERSION:
-        r.warn(0, f"собрано на suai-report v{ver.group(1)}.{ver.group(2)}, проверка — "
-                  "для v2.6; обнови пакет: cd suai-report && git pull && make install")
+    elif tuple(map(int, ver.group(1).split("."))) < PACKAGE_VERSION:
+        r.warn(0, f"собрано на suai-report v{ver.group(1)}, проверка — для v{VERSION}; "
+                  "обнови пакет (cd suai-report && git pull && make install) "
+                  "и пересобери: suai build")
 
     errs = []
     for i, line in enumerate(lines):
@@ -824,6 +812,11 @@ def check_build(d: Path, tex: TexChecker, r: Report) -> None:
         r.warn(0, f"шрифт {m.group(1)} не найден, взят {m.group(2)} — титул может "
                   "отличаться от бланка; нужен ttf-mscorefonts-installer")
 
+    for lang in dict.fromkeys(re.findall(r"Язык листинга '([^']*)' неизвестен", text)):
+        if lang not in tex.unknown_langs:
+            r.warn(0, f"язык листинга «{lang}» неизвестен — код набран без подсветки; "
+                      "проверь имя или убери язык: [label=lst:имя]")
+
     has_ref_errors = any("несуществующую метку" in e.text for e in r.errors)
     if not failed and not has_ref_errors and (
             "There were undefined references" in text or "Rerun to get" in text):
@@ -855,7 +848,7 @@ def check_build(d: Path, tex: TexChecker, r: Report) -> None:
 
 def main() -> int:
     ap = argparse.ArgumentParser(
-        description="Проверка отчёта на suai-report v2.6: main.tex и build/main.log.")
+        description=f"Проверка отчёта на suai-report v{VERSION}: main.tex и build/main.log.")
     ap.add_argument("folder", nargs="?", default=".", help="папка отчёта (с main.tex)")
     args = ap.parse_args()
 

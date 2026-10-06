@@ -1,6 +1,6 @@
 {
   "name": "suai-report",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Отчёты ГУАП по ГОСТ 7.32-2017 на LaTeX-библиотеке suai-report: от методички и скриншотов до готового PDF.",
   "author": {
     "name": "Echways"
