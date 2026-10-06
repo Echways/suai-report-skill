@@ -342,7 +342,11 @@ class Languages:
         ]
         try:
             out = subprocess.run(
-                ["kpsewhich", *names], capture_output=True, text=True, timeout=10
+                ["kpsewhich", *names],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
             ).stdout.split()
         except (OSError, subprocess.SubprocessError):
             return False
@@ -666,7 +670,7 @@ class TexChecker:
         """Окружение, внутри которого команды не ищутся."""
         n = idx + 1
         if env in ("code", "lstlisting"):
-            opts, pos = read_group(after, 0, "[")
+            opts, _ = read_group(after, 0, "[")
             if env == "code":
                 self.r.warn(
                     n,
@@ -884,7 +888,7 @@ def changed_since_build(d: Path, log: Path, fallback: list[Path]) -> list[str]:
     for rel, md5 in re.findall(
         r'^\s+"([^"]+)" \S+ \S+ ([0-9a-f]{32}) ',
         fdb.read_text(encoding="utf-8", errors="replace"),
-        re.M,
+        re.MULTILINE,
     ):
         if rel.startswith(("/", "build/")) or ":" in rel:
             continue
@@ -912,7 +916,7 @@ def check_build(d: Path, tex: TexChecker, r: Report) -> None:
             "(suai build), иначе замечания по логу устарели",
         )
 
-    ver = re.search(r"^Package: suai-report \S+ v(\d+(?:\.\d+)*)", text, re.M)
+    ver = re.search(r"^Package: suai-report \S+ v(\d+(?:\.\d+)*)", text, re.MULTILINE)
     if not ver:
         r.warn(0, "в логе нет suai-report — собрано не тем пакетом?")
     elif tuple(map(int, ver.group(1).split("."))) < PACKAGE_VERSION:

@@ -57,7 +57,7 @@ def text_field(path: Path, data: dict, key: str, where: str = "") -> str | None:
 
 def frontmatter(path: Path, text: str) -> dict[str, str] | None:
     """Поля «ключ: значение» между двумя «---»; значение может быть в кавычках."""
-    m = re.match(r"---\n(.*?)\n---\n", text, re.S)
+    m = re.match(r"---\n(.*?)\n---\n", text, re.DOTALL)
     if not m:
         error(path, "нет frontmatter между строками «---»")
         return None
