@@ -184,16 +184,16 @@ def check_skill(d: Path) -> str | None:
     return name
 
 
-def check_evals(skills: set[str]) -> None:
-    path = REPO / "evals" / "evals.json"
+def check_evals(d: Path, skill: str | None) -> None:
+    path = d / "evals" / "evals.json"
     if not path.is_file():
         return
     data = load_json(path)
     if data is None:
         return
-    skill = text_field(path, data, "skill_name")
-    if skill and skill not in skills:
-        error(path, f"skill_name '{skill}': no such skill in skills/")
+    name = text_field(path, data, "skill_name")
+    if name and skill and name != skill:
+        error(path, f"skill_name '{name}', but the skill is '{skill}'")
     evals = data.get("evals")
     if not isinstance(evals, list) or not evals:
         error(path, "'evals' is empty or missing")
@@ -235,8 +235,12 @@ def main() -> int:
     skill_dirs = sorted(p for p in (REPO / "skills").glob("*") if p.is_dir())
     if not skill_dirs:
         error(REPO / "skills", "no skills")
-    skills = {name for name in map(check_skill, skill_dirs) if name}
-    check_evals(skills)
+    skills = set()
+    for d in skill_dirs:
+        name = check_skill(d)
+        check_evals(d, name)
+        if name:
+            skills.add(name)
     if args.tag and version and args.tag != f"v{version}":
         error(
             REPO / ".claude-plugin" / "plugin.json",

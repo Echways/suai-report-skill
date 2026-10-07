@@ -29,7 +29,24 @@ Obsidian Sync   | 4 \$ в месяц | да
   (`\url{…a%20b}`) stays text.
 - A hand-made table (`tabular`, `longtable`) gets the same line spacing as
   `\suaitable` — the same as body text.
-- There are no merged cells. If really needed, use `xltabular` by hand with
-  `\caption` and `\label{tab:…}` (see the package demo for the styling),
-  but restructuring the table is usually better.
+- There are no merged cells or fixed widths. Restructuring the table is
+  usually better; if they are really needed, write a `tabularx` by hand.
+  The caption, numbering and `\tabref` work the same:
+
+  ```latex
+  \begin{table}[H]
+    \caption{Состав стенда}\label{tab:stand}
+    \begin{tabularx}{\textwidth}{|L{4cm}|Y|R{3cm}|}
+      \hline
+      Узел & Назначение & Количество \\ \hline
+      Сервер & хранение данных & 2 \\ \hline
+      \multicolumn{2}{|l|}{Всего узлов} & 2 \\ \hline
+    \end{tabularx}
+  \end{table}
+  ```
+
+  Column types from the package: `L{width}`, `P{width}`, `R{width}` — fixed
+  width, text left / centred / right; `Y` — takes the remaining width,
+  centred. A hand-made table longer than a page is `xltabular` with the
+  same columns.
 - Aligning the source with spaces is for readability only.

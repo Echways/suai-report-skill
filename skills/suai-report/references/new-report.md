@@ -13,7 +13,7 @@ report back as `SKILL.md` says.
   `main.tex` already started.
 - Read the `main.tex` of a neighbouring report (usually the previous lab of
   the same course), but **only if it is on suai-report v2.6 or newer** —
-  `build/main.log` says `Package: suai-report … v2.6` / `v2.7.1`, or
+  `build/main.log` says `Package: suai-report … v2.6` / `v2.7.2`, or
   `.vscode/settings.json` contains `suai_copy`. Such a report is the best
   model: it shows how the user writes the introduction, captions,
   conclusion and sources, and what goes on the title page. Match that

@@ -34,6 +34,8 @@ Code in the text is **indented** lines under the command:
   the error «После подписи \suaicode на той же строке ничего не пишется»).
 - The caption is LaTeX: `Файл dags/clickhouse\_upload.py`.
 - Long lines wrap automatically with a ↪ mark.
+- Highlighting is italic comments only: keywords are not bold and nothing
+  is coloured, since GOST keeps bold for headings.
 - A listing that does not fit continues on the next page under
   «Продолжение листинга N», like a table. A caption is never left at the
   bottom of a page without code: the whole listing moves to the next page.
@@ -67,7 +69,24 @@ The file is looked up from the report folder and in `code/`. For long
 programs this beats copying code into the text: one source of truth. Whole
 programs of several pages usually go to an appendix.
 
-Coloured listings: `\lstset{style=gostcolor}` in the preamble (GOST
-discourages it; only on request). Never use the `\begin{code}` environment
-from pre-v2.5 reports, even if a neighbouring report has it: code is
-written only with `\suaicode`.
+`\suaicode` always typesets the whole file: `firstline`, `lastline` and
+`linerange` are ignored. Part of a file is the one case for the listings
+command itself. It gets the same frame, numbering and `\lstref`, but the
+path is taken from the report folder (`code/` is not searched) and the
+label is written in full:
+
+```latex
+Функция чтения приведена в~\lstref{read}.
+
+\lstinputlisting[language=C++, caption={Функция чтения чисел из файла},
+  label=lst:read, firstline=18, lastline=39, firstnumber=18]{code/stats.cpp}
+```
+
+Coloured listings (`\lstset{style=gostcolor}`) and bold keywords
+(`\lstset{keywordstyle=\bfseries}`) go in the preamble and only on
+request: GOST discourages both. A key for one listing goes in its
+brackets: `\suaicode[Python, numbers=none]{…}`.
+
+Never use the `\begin{code}` environment from pre-v2.5 reports, even if a
+neighbouring report has it: code is written only with `\suaicode` (and
+`\lstinputlisting` for a part of a file).

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check a suai-report v2.7.1 report after a build.
+"""Check a suai-report v2.7.2 report after a build.
 
   python3 check_report.py [REPORT_DIR]
 
@@ -24,7 +24,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
-PACKAGE_VERSION = (2, 7, 1)
+PACKAGE_VERSION = (2, 7, 2)
 VERSION = ".".join(map(str, PACKAGE_VERSION))
 
 IMG_DIRS = ("images", ".")
@@ -97,10 +97,12 @@ SUAI_LANGS = (
 )
 KINDS = {"fig": "figure", "tab": "table", "lst": "listing", "eq": "equation"}
 REF_PREFIX = {"figref": "fig", "tabref": "tab", "lstref": "lst", "formref": "eq"}
+# listings keys that \suaicode ignores: it always typesets the whole file
+FILE_PART_KEYS = ("firstline", "lastline", "linerange")
 
 TOKEN = re.compile(
     r"\\(suaiimg|suaicode|suaitasks|suailist|suaienum|suainum|suaitable|"
-    r"suaieq|suaisources|suaititlepage|label|includegraphics|begin|"
+    r"suaieq|suaisources|suaititlepage|label|includegraphics|lstinputlisting|begin|"
     r"figref|tabref|lstref|formref|ref|pageref|eqref)(?![A-Za-z@])\*?"
 )
 RANGE = re.compile(
@@ -620,6 +622,15 @@ class TexChecker:
         if second is not None:
             own, _ = read_group(line, pos2, "[")
             fname = first.strip()
+            ignored = [key for key in FILE_PART_KEYS if key in keyed]
+            if ignored:
+                self.r.warn(
+                    n,
+                    f"{', '.join(ignored)} ignored by \\suaicode: the whole "
+                    "file is typeset; part of a file is \\lstinputlisting"
+                    "[language=…, caption={…}, label=lst:…, firstline=…, "
+                    "lastline=…]{file}",
+                )
             path = next(
                 (p for p in (self.d / fname, self.d / "code" / fname) if p.is_file()),
                 None,
@@ -674,6 +685,43 @@ class TexChecker:
         while j > idx + 1 and indent_width(self.lines[j - 1]) is None:
             j -= 1
         return j
+
+    def check_input_listing(self, n: int, idx: int, after: str) -> None:
+        """\\lstinputlisting[keys]{file}, the listings command for a part
+        of a file; its keys may run over several lines."""
+        text = after
+        for nxt in self.lines[idx + 1 :]:
+            if not nxt.strip():
+                break
+            text += " " + strip_comment(nxt).strip()
+        opts, pos = read_group(text, 0, "[")
+        fname, _ = read_group(text, pos, "{")
+        if fname is None:
+            self.r.error(
+                n,
+                "cannot parse the \\lstinputlisting arguments: "
+                "\\lstinputlisting[keys]{file}",
+            )
+            return
+        _, keyed = split_opts(opts)
+        self.check_lang(n, keyed.get("language", ""))
+        fname = fname.strip()
+        path = self.d / fname
+        if path.is_file():
+            self.code_files.append(path)
+        else:
+            self.r.error(
+                n,
+                f"listing file '{fname}' not found (\\lstinputlisting takes "
+                "the path from the report folder and does not look in code/)",
+            )
+        label = keyed.get("label")
+        if label:
+            self.define(label, n, "lst")
+        elif keyed.get("caption"):
+            self.r.warn(
+                n, "listing without a label cannot be referenced: label=lst:name"
+            )
 
     def skip_env(self, idx: int, env: str, after: str) -> int:
         """Environment whose body is not scanned for commands."""
@@ -730,6 +778,8 @@ class TexChecker:
                     break
                 if cmd == "suaiimg":
                     self.check_img(n, idx, after)
+                elif cmd == "lstinputlisting":
+                    self.check_input_listing(n, idx, after)
                 elif cmd == "includegraphics":
                     _, pos = read_group(after, 0, "[")
                     name, _ = read_group(after, pos, "{")

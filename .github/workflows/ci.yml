@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: ruff
-        run: pipx run ruff check --output-format=github .
+        run: pipx run ruff check --target-version py310 --output-format=github .
 
       - name: Manifests and skill
         run: python3 .github/scripts/check_repo.py
@@ -45,7 +45,7 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
-      - run: python skills/suai-report/scripts/check_report.py suai-report/demo
+      - run: python skills/suai-report/scripts/check_report.py suai-report/docs/demo
 
   # The real package from main: the demo report is built with the same
   # suai build the user runs, and check_report.py finds no errors in it
@@ -64,17 +64,17 @@ jobs:
         run: command -v python3 || (apt-get update && apt-get install -y --no-install-recommends python3)
 
       - name: Build the demo report
-        run: python3 suai-report/scripts/suai.py build suai-report/demo
+        run: python3 suai-report/scripts/suai.py build suai-report/docs/demo
 
       - name: The built report has no errors
-        run: python3 skills/suai-report/scripts/check_report.py suai-report/demo
+        run: python3 skills/suai-report/scripts/check_report.py suai-report/docs/demo
 
       # otherwise a script that always says "no issues" would pass
       - name: A broken reference is caught
         run: |
-          sed -i 's/^\\end{document}/\\figref{ci-no-such-figure}\n&/' suai-report/demo/main.tex
+          sed -i 's/^\\end{document}/\\figref{ci-no-such-figure}\n&/' suai-report/docs/demo/main.tex
           code=0
-          python3 skills/suai-report/scripts/check_report.py suai-report/demo || code=$?
+          python3 skills/suai-report/scripts/check_report.py suai-report/docs/demo || code=$?
           test "$code" -eq 1
 
       - uses: actions/upload-artifact@v7
@@ -82,4 +82,4 @@ jobs:
         with:
           name: demo-log
           if-no-files-found: ignore
-          path: suai-report/demo/build/main.log
+          path: suai-report/docs/demo/build/main.log

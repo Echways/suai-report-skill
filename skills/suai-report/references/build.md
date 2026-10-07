@@ -11,6 +11,7 @@
 | `suai watch [DIR]` | rebuild on save (do not run it in the background needlessly) |
 | `suai clean [DIR]` | delete `build/` and the PDF |
 | `suai update` | refresh the report's `.vscode/` |
+| `suai install` / `suai uninstall` | put `suai-report.sty` and the command in place / remove them |
 
 ## Without the `suai` command
 
@@ -47,5 +48,7 @@ blank line after it) — the error itself is in one of the block's lines;
 | `Undefined control sequence` | typo in a command, or a `\` in text (Windows path → `\textbackslash{}` or `\texttt{…}` with `/`) |
 | `Extra }, or forgotten $` / `Runaway argument` | unbalanced braces, often a bare `%` cut the line |
 | Warning `Шрифт 'Times New Roman' не найден` | not an error: TeX Gyre Termes is substituted; tell the user to install `ttf-mscorefonts-installer` |
+| `Undefined control sequence` on a `\suai…` command, or an error about XeTeX right after `\usepackage{suai-report}` | a stale copy of the package (run `suai install`), or the build ran `pdflatex` / `lualatex` instead of `suai build` |
+| Warning `xdvipdfmx:warning: Object @table.1 already defined` | harmless, appears in reports with tables |
 | `Reference 'fig:x' undefined` | typo in the label, or the figure is not inserted |
 | `Label 'fig:x' multiply defined` | one image twice without an own label |

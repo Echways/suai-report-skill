@@ -57,7 +57,7 @@ first non-blank line without indentation.
 | `\suaiapp[справочное]{Название}` | appendix А, Б… | `references/structure.md` |
 | `\figref`, `\tabref`, `\lstref`, `\formref` | «рисунке 1», «таблице 1», «листинге 1», «формуле (1)» | the references row below |
 
-The reference files are verified against suai-report v2.7.1. The package
+The reference files are verified against suai-report v2.7.2. The package
 source is `~/texmf/tex/latex/suai-report/suai-report.sty` (`kpsewhich
 suai-report.sty`); where behaviour differs from them, the source wins.
 
@@ -85,7 +85,7 @@ cd Subject/lab-5 && suai build                       # PDF: Subject-lab-5.pdf
 python3 <skill-dir>/scripts/check_report.py .
 ```
 
-`check_report.py` reads `main.tex` the way package v2.7.1 does, plus
+`check_report.py` reads `main.tex` the way package v2.7.2 does, plus
 `build/main.log`, and prints four parts:
 
 - **ERRORS** — fix them: broken reference (with a similar label
@@ -94,7 +94,8 @@ python3 <skill-dir>/scripts/check_report.py .
   the line where the block ends; the script adds where the block starts.
 - **WARNINGS** — look at each: objects never referenced or placed before
   their reference, unused screenshots, table rows with a different cell
-  count, unknown listing language, overfull text, manual
+  count, unknown listing language, `firstline` / `lastline` on
+  `\suaicode`, overfull text, manual
   `figure`/`tabular`/`itemize`, stale log, build with an old package
   (update the package and rebuild).
 - **TODO** — lines containing `TODO`; list them for the user.
